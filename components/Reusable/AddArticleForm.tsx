@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
-import { Upload, X, Plus, Loader } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Upload, X, Plus, Loader, Trash2, GripVertical, Edit2 } from "lucide-react";
 import Image from "next/image";
+import EditArticleForm from "./EditArticleForm";
 
 interface ArticleImage {
   id: string;
@@ -16,9 +17,18 @@ interface FormData {
   description: string;
   author: string;
   readTime: number;
+  date: string;
   tags: string[];
   images: ArticleImage[];
   mainImageId: string;
+}
+
+interface Article {
+  _id: string;
+  title: string;
+  author: string;
+  published: boolean;
+  slug: string;
 }
 
 const AddArticleForm: React.FC = () => {
@@ -27,6 +37,7 @@ const AddArticleForm: React.FC = () => {
     description: "",
     author: "",
     readTime: 5,
+    date: new Date().toISOString().split('T')[0],
     tags: [],
     images: [],
     mainImageId: "",
@@ -35,6 +46,60 @@ const AddArticleForm: React.FC = () => {
   const [newTag, setNewTag] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
+  
+  // Delete article states
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loadingArticles, setLoadingArticles] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showDeleteSection, setShowDeleteSection] = useState(false);
+
+  // Edit article states
+  const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
+  const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(true);
+
+  // Fetch articles for delete section
+  const fetchArticles = async () => {
+    setLoadingArticles(true);
+    try {
+      const response = await fetch("/api/articles");
+      if (response.ok) {
+        const data = await response.json();
+        setArticles(data);
+      }
+    } catch (error) {
+      console.error("Error fetching articles:", error);
+    } finally {
+      setLoadingArticles(false);
+    }
+  };
+
+  // Delete article handler
+  const handleDeleteArticle = async (articleId: string, articleTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${articleTitle}"? This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingId(articleId);
+    try {
+      const response = await fetch("/api/articles/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: "success", text: `Article "${articleTitle}" deleted successfully!` });
+        setArticles((prev) => prev.filter((a) => a._id !== articleId));
+      } else {
+        throw new Error("Failed to delete article");
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: "Failed to delete article" });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -70,6 +135,18 @@ const AddArticleForm: React.FC = () => {
           prev.mainImageId === id && updatedImages.length > 0
             ? updatedImages[0].id
             : "",
+      };
+    });
+  };
+
+  const moveImage = (fromIndex: number, toIndex: number) => {
+    setFormData((prev) => {
+      const updatedImages = [...prev.images];
+      const [movedImage] = updatedImages.splice(fromIndex, 1);
+      updatedImages.splice(toIndex, 0, movedImage);
+      return {
+        ...prev,
+        images: updatedImages,
       };
     });
   };
@@ -116,6 +193,7 @@ const AddArticleForm: React.FC = () => {
       uploadFormData.append("description", formData.description);
       uploadFormData.append("author", formData.author);
       uploadFormData.append("readTime", formData.readTime.toString());
+      uploadFormData.append("date", formData.date);
       uploadFormData.append("tags", JSON.stringify(formData.tags));
       uploadFormData.append("mainImageId", formData.mainImageId);
 
@@ -253,6 +331,24 @@ const AddArticleForm: React.FC = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Publish Date *
+              </label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    date: e.target.value,
+                  })
+                }
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
           </div>
 
           {/* Tags */}
@@ -328,18 +424,38 @@ const AddArticleForm: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">
                   Uploaded Images ({formData.images.length})
                 </h3>
+                <p className="text-sm text-gray-500 mb-4">Drag images to rearrange order</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {formData.images.map((img) => (
+                  {formData.images.map((img, index) => (
                     <div
                       key={img.id}
-                      className={`border-2 rounded-lg overflow-hidden transition ${
-                        formData.mainImageId === img.id
+                      draggable
+                      onDragStart={() => setDraggedItem(img.id)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => {
+                        const draggedIndex = formData.images.findIndex(
+                          (i) => i.id === draggedItem
+                        );
+                        if (draggedIndex !== -1 && draggedIndex !== index) {
+                          moveImage(draggedIndex, index);
+                        }
+                        setDraggedItem(null);
+                      }}
+                      onDragEnd={() => setDraggedItem(null)}
+                      className={`border-2 rounded-lg overflow-hidden transition cursor-move ${
+                        draggedItem === img.id
+                          ? "opacity-50 border-blue-400"
+                          : formData.mainImageId === img.id
                           ? "border-blue-600 shadow-lg"
                           : "border-gray-200 hover:border-gray-300"
                       }`}
                     >
                       {/* Image Preview */}
                       <div className="relative w-full h-40 bg-gray-100">
+                        <div className="absolute top-2 left-2 bg-gray-800 bg-opacity-70 text-white px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+                          <GripVertical size={14} />
+                          #{index + 1}
+                        </div>
                         <img
                           src={img.preview}
                           alt="preview"
@@ -427,6 +543,105 @@ const AddArticleForm: React.FC = () => {
             </p>
           </div>
         </form>
+
+        {/* Delete Articles Section */}
+        <div className="mt-12 bg-white rounded-xl shadow-md p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-gray-800">Manage Articles</h2>
+            <button
+              type="button"
+              onClick={() => {
+                setShowDeleteSection(!showDeleteSection);
+                if (!showDeleteSection && articles.length === 0) {
+                  fetchArticles();
+                }
+              }}
+              className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-semibold transition flex items-center gap-2"
+            >
+              <Trash2 size={18} />
+              {showDeleteSection ? "Hide" : "Delete Articles"}
+            </button>
+          </div>
+
+          {showDeleteSection && (
+            <div className="mt-4">
+              {loadingArticles ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader className="animate-spin text-gray-400" size={32} />
+                  <span className="ml-2 text-gray-500">Loading articles...</span>
+                </div>
+              ) : articles.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No articles found
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-500 mb-4">
+                    Click the delete button to remove an article. This action cannot be undone.
+                  </p>
+                  {articles.map((article) => (
+                    <div
+                      key={article._id}
+                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition"
+                    >
+                      <div>
+                        <h3 className="font-semibold text-gray-800">{article.title}</h3>
+                        <p className="text-sm text-gray-500">
+                          by {article.author} • {article.published ? "Published" : "Draft"}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingArticleId(article._id)}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition flex items-center gap-2"
+                        >
+                          <Edit2 size={16} />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteArticle(article._id, article.title)}
+                          disabled={deletingId === article._id}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-semibold transition flex items-center gap-2"
+                        >
+                          {deletingId === article._id ? (
+                            <>
+                              <Loader size={16} className="animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 size={16} />
+                              Delete
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Edit Article Modal */}
+        {editingArticleId && (
+          <div className="mt-12">
+            <EditArticleForm
+              articleId={editingArticleId}
+              onBack={() => {
+                setEditingArticleId(null);
+                fetchArticles();
+              }}
+              onSuccess={() => {
+                setEditingArticleId(null);
+                fetchArticles();
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

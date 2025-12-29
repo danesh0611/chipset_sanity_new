@@ -10,7 +10,7 @@ import { Analytics } from "@vercel/analytics/react";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://chipsetsrmrmp.vercel.app"),
+  metadataBase: new URL("https://chipsetsrm.vercel.app"),
   title: {
     default: "CHIPSET | SRM University Ramapuram",
     template: "%s | CHIPSET SRM University Ramapuram"
@@ -53,6 +53,9 @@ export const metadata: Metadata = {
       'max-image-preview': 'large',
       'max-video-preview': -1
     }
+  },
+  verification: {
+    google: "C4iB6CbG_q5hRMd0VkPlhScF1MY5KFB-BthH5J-AS7E"
   },
   alternates: {
     canonical: "https://chipsetsrm.vercel.app/"
