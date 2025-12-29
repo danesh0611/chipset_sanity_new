@@ -223,6 +223,7 @@ const AddArticleForm: React.FC = () => {
         description: "",
         author: "",
         readTime: 5,
+        date: new Date().toISOString().split('T')[0],
         tags: [],
         images: [],
         mainImageId: "",

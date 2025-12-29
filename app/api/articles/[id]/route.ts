@@ -32,7 +32,7 @@ export async function GET(
         }
       }`,
       params: { id },
-      revalidate: 0,
+      options: { revalidate: 0 },
     });
 
     if (!article) {
