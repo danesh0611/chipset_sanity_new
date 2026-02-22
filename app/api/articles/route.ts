@@ -24,15 +24,14 @@ export async function POST(request: NextRequest) {
     // Get all images from formData
     const images = formData.getAll("images") as File[];
 
-    // Upload images to Sanity
-    const uploadedImages = await Promise.all(
-      images.map(async (image) => {
-        const imageAsset = await client.assets.upload("image", image, {
-          filename: image.name,
-        });
-        return imageAsset;
-      })
-    );
+    // Upload images to Sanity one by one
+    const uploadedImages = [];
+    for (const image of images) {
+      const imageAsset = await client.assets.upload("image", image, {
+        filename: image.name,
+      });
+      uploadedImages.push(imageAsset);
+    }
 
     // Find main image
     const mainImage =
@@ -97,8 +96,5 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export default {
-  bodyParser: {
-    sizeLimit: '20mb',
-  },
-};
+// Note: Next.js app directory API routes do NOT support custom body size limits.
+// To allow uploads >4MB, use direct-to-storage (e.g. S3, GCS) from the client, then send metadata to your API.
