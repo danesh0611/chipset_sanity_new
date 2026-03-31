@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     "technology",
   ],
 
-  // ✅ Google Verification inside metadata (RECOMMENDED WAY)
+ 
   verification: {
     google: "C4iB6CbG_q5hRMd0VkPlhScF1MY5KFB-BthH5J-AS7E",
   },
@@ -85,6 +85,7 @@ export default function RootLayout({
 
       <body className={inter.className}>
         <Navbar />
+       
         {children}
         <Footer />
 
@@ -93,7 +94,7 @@ export default function RootLayout({
 
         {/* Google Analytics */}
         <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-90LSQWVPVQ"
+          src="https://www.googletagmanager.com/gtag/js?id=G-BSPBBX6LZD"
           strategy="afterInteractive"
         />
         <Script id="google-analytics" strategy="afterInteractive">
@@ -101,6 +102,7 @@ export default function RootLayout({
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
+            gtag('config', 'G-BSPBBX6LZD');
             gtag('config', 'G-90LSQWVPVQ');
           `}
         </Script>
